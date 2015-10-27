@@ -1,38 +1,36 @@
 import types
 import inspect
 import re
+import traceback
 
 from jsonrpclib import config
 
 iter_types = [
-    types.DictType,
-    types.ListType,
-    types.TupleType
+        dict,
+        list,
+        tuple
 ]
 
 string_types = [
-    types.StringType,
-    types.UnicodeType
+        str,
+        bytes
 ]
 
 numeric_types = [
-    types.IntType,
-    types.LongType,
-    types.FloatType
+        int,
+        float
 ]
 
 value_types = [
-    types.BooleanType,
-    types.NoneType
+        bool,
+        type(None)
 ]
 
 supported_types = iter_types+string_types+numeric_types+value_types
 invalid_module_chars = r'[^a-zA-Z0-9\_\.]'
 
-
 class TranslationError(Exception):
     pass
-
 
 def dump(obj, serialize_method=None, ignore_attribute=None, ignore=[]):
     if not serialize_method:
@@ -44,20 +42,20 @@ def dump(obj, serialize_method=None, ignore_attribute=None, ignore=[]):
     if obj_type in numeric_types+string_types+value_types:
         return obj
     if obj_type in iter_types:
-        if obj_type in (types.ListType, types.TupleType):
+        if obj_type in (list, tuple):
             new_obj = []
             for item in obj:
-                new_obj.append(
-                    dump(item, serialize_method, ignore_attribute, ignore))
-            if isinstance(obj_type, types.TupleType):
+                new_obj.append(dump(item, serialize_method,
+                                     ignore_attribute, ignore))
+            if obj_type is tuple:
                 new_obj = tuple(new_obj)
             return new_obj
         # It's a dict...
         else:
             new_obj = {}
-            for key, value in obj.iteritems():
-                new_obj[key] = dump(
-                    value, serialize_method, ignore_attribute, ignore)
+            for key, value in obj.items():
+                new_obj[key] = dump(value, serialize_method,
+                                     ignore_attribute, ignore)
             return new_obj
     # It's not a standard type, so it needs __jsonclass__
     module_name = inspect.getmodule(obj).__name__
@@ -65,7 +63,7 @@ def dump(obj, serialize_method=None, ignore_attribute=None, ignore=[]):
     json_class = class_name
     if module_name not in ['', '__main__']:
         json_class = '%s.%s' % (module_name, json_class)
-    return_obj = {"__jsonclass__": [json_class]}
+    return_obj = {"__jsonclass__":[json_class,]}
     # If a serialization method is defined..
     if serialize_method in dir(obj):
         # Params can be a dict (keyword) or list (positional)
@@ -85,25 +83,23 @@ def dump(obj, serialize_method=None, ignore_attribute=None, ignore=[]):
         if type(attr_value) in supported_types and \
                 attr_name not in ignore_list and \
                 attr_value not in ignore_list:
-            attrs[attr_name] = dump(
-                attr_value, serialize_method, ignore_attribute, ignore)
+            attrs[attr_name] = dump(attr_value, serialize_method,
+                                     ignore_attribute, ignore)
     return_obj.update(attrs)
     return return_obj
 
-
 def load(obj):
-    if type(obj) in string_types + numeric_types + value_types:
+    if type(obj) in string_types+numeric_types+value_types:
         return obj
-
-    if isinstance(obj, list):
+    if type(obj) is list:
         return_list = []
         for entry in obj:
             return_list.append(load(entry))
         return return_list
     # Othewise, it's a dict type
-    if '__jsonclass__' not in obj:
+    if '__jsonclass__' not in obj.keys():
         return_dict = {}
-        for key, value in obj.iteritems():
+        for key, value in obj.items():
             new_value = load(value)
             return_dict[key] = new_value
         return return_dict
@@ -132,19 +128,12 @@ def load(obj):
         except ImportError:
             raise TranslationError('Could not import %s from module %s.' %
                                    (json_class_name, json_module_tree))
-
-        # The returned class is the top-level module, not the one we really
-        # want.  (E.g., if we import a.b.c, we now have a.)  Walk through other
-        # path components to get to b and c.
-        for i in json_module_parts[1:]:
-            temp_module = getattr(temp_module, i)
-
         json_class = getattr(temp_module, json_class_name)
     # Creating the object...
     new_obj = None
-    if isinstance(params, list):
+    if type(params) is list:
         new_obj = json_class(*params)
-    elif isinstance(params, dict):
+    elif type(params) is dict:
         new_obj = json_class(**params)
     else:
         raise TranslationError('Constructor args must be a dict or list.')
