@@ -79,7 +79,7 @@ def dump(obj, serialize_method=None, ignore_attribute=None, ignore=[]):
     return_obj['__jsonclass__'].append([])
     attrs = {}
     ignore_list = getattr(obj, ignore_attribute, [])+ignore
-    for attr_name, attr_value in obj.__dict__.iteritems():
+    for attr_name, attr_value in obj.__dict__.items():
         if type(attr_value) in supported_types and \
                 attr_name not in ignore_list and \
                 attr_value not in ignore_list:
@@ -137,7 +137,7 @@ def load(obj):
         new_obj = json_class(**params)
     else:
         raise TranslationError('Constructor args must be a dict or list.')
-    for key, value in obj.iteritems():
+    for key, value in obj.items():
         if key == '__jsonclass__':
             continue
         setattr(new_obj, key, value)
